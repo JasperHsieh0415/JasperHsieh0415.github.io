@@ -1,0 +1,53 @@
+---
+layout: post
+title:  "Lighttpd + multi-threaded FCGI"
+date:   2020-11-29 23:50:54 +0800
+tags:
+    - Work
+    - Linux
+---
+
+# Lighttpd config
+
+- *max-proc*: the number of fastcgi processes that will be started (default: 4)
+- *socket*: path to the unix-domain socket
+
+```
+fastcgi.server = (
+    "/osc/" => ((
+        "check-local" => "disable",
+        "socket" => "/tmp/fastcgi.socket",
+        "bin-path" => "/usr/local/sbin/osccmd.cgi",
+        "max-procs" => 2
+    ))
+)
+```
+
+# Single-threaded FCGI
+
+For signal thread FCGI, we can use [FCGI_Accept][fcgi_accept] to accept new request from HTTP server. Since we shall include [fcgi_stdio.h][fcgi_stdio], all standard I/O function will be redirected to FCGI-based I/O functions. The environment strings can be also searched by **getenv**.
+
+
+Example:
+
+<script src="https://gist.github.com/JasperHsieh0415/55d652869ad10e24bfe8c50470ebf742.js"></script>
+
+# Multi-threaded FCGI
+
+For multi thread FCGI, we can use FCGX_Accept_r to accept requests from HTTP server. Detail steps as follows:
+
+1. Initialize FCGX library: [FCGX_Init][fcgx_init]
+2. Loop for accepting request: [FCGX_Accept_r][fcgx_appect_r]
+3. Get parameters from requests: [FCGX_GetParam][fcgx_param]
+4. Send response to the client: [FCGX_FPrintF][fcgx_fprintf]
+
+<script src="https://gist.github.com/JasperHsieh0415/2aee652f0672ad00828ee64878f4f0e1.js"></script>
+
+
+
+[fcgi_accept]:https://github.com/toshic/libfcgi/blob/master/doc/FCGI_Accept.3
+[fcgi_stdio]:https://github.com/toshic/libfcgi/blob/master/include/fcgi_stdio.h
+[fcgx_init]:https://github.com/toshic/libfcgi/blob/f3cef74607d4770c590c52fe9b9dd7c702149cd5/libfcgi/fcgiapp.c#L2067
+[fcgx_appect_r]:https://github.com/toshic/libfcgi/blob/f3cef74607d4770c590c52fe9b9dd7c702149cd5/libfcgi/fcgiapp.c#L2154
+[fcgx_param]:https://github.com/toshic/libfcgi/blob/f3cef74607d4770c590c52fe9b9dd7c702149cd5/libfcgi/fcgiapp.c#L1093
+[fcgx_fprintf]:https://github.com/toshic/libfcgi/blob/f3cef74607d4770c590c52fe9b9dd7c702149cd5/libfcgi/fcgiapp.c#L364
