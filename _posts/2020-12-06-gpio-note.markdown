@@ -1,0 +1,128 @@
+---
+layout: post
+title:  "GPIO Note"
+date:   2020-12-06 17:50:54 +0800
+tags:
+    - Work
+    - Linux
+---
+
+紀錄一下工作上遇到跟GPIO相關的API (依driver開始流程排序)
+
+# gpio_request
+申請GPIO，帶入GPIO number及對應的label
+```c
+static inline int gpio_request(unsigned gpio, const char *label)
+```
+
+# gpio_direction_input/gpio_direction_output
+設置GPIO方向
+```c
+static inline int gpio_direction_input(unsigned gpio)
+```
+
+# irq_set_irq_type
+設置GPIO觸發的種類
+```c
+int irq_set_irq_type(unsigned int irq, unsigned int type)
+```
+type種類定義在irq.h:
+
+- ```IRQ_TYPE_NONE```: default, unspecified type
+- ```IRQ_TYPE_EDGE_RISING```: rising edge triggered
+- ```IRQ_TYPE_EDGE_FALLING```: falling edge triggered
+- ```IRQ_TYPE_EDGE_BOTH```: rising and falling edge triggered
+- ```IRQ_TYPE_LEVEL_HIGH```: high level triggered
+- ```IRQ_TYPE_LEVEL_LOW```: low level triggered
+
+
+# request_irq
+[TODO] devm_request_irq vs request_irq
+
+註冊interrupt service routine，設定callback function讓interrupt發生時執行
+```c
+static inline int __must_check
+request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
+	    const char *name, void *dev)
+{
+	return request_threaded_irq(irq, handler, NULL, flags, name, dev);
+}
+```
+- ```unsigned int irq```: GPIO num
+- ```irq_handler_t handler```: callback function
+- ```flags```: bitmask to set irq handling routines, ``IRQF_SHARED`` is most commonly used in my work.
+- ```const char *name```: GPIO label
+- ```void *dev```: device structure to be shared. Set to ``NULL`` is the interrupt line is NOT shared.
+
+# enable_irq/disable_irq
+- ```enable_irq```:啟用IRQ handling
+```c
+void enable_irq (unsigned int irq)
+```
+- ```disable_irq```:禁用IRQ handling
+```c
+void disable_irq (unsigned int irq)
+```
+- ```enable_irq```會禁用IRQ並且等到中斷處理完才會返回，如果要立即返回，則須使用```disable_irq_nosync```
+- ```enable_irq```和```disable_irq```需成雙成對，不然會有kernel warning
+
+
+
+# Example - Button interrupt control
+
+## Structures
+
+- GPIO configs
+
+```c
+typedef struct _CAM_GPIO_Cfg_{
+	unsigned int gpio_num;
+	int gpio_dir;
+	int gpio_value;
+	unsigned int function;
+	int irq_type;
+	char lable[16];
+}BTN_GPIO_Cfg;
+```
+
+- Button_Entry
+
+```c
+typedef struct _Button_Entry_{
+	struct list_head list;
+	BTN_GPIO_Cfg *gpio_cfg;
+	int irq_num;
+	struct timer_list timer;
+	int prev_stat;
+} Button_Entry;
+```
+
+- Button GPIO array
+
+```c
+enum {GPIO_DIR_IN,GPIO_DIR_OUT};
+enum {GPIO_LOW,GPIO_HIGH};
+
+#define FUNC_POWER_BTN 0x01
+
+
+BTN_GPIO_Cfg btn_gpio_array[]=
+{
+	{PIN_GPIOC6,GPIO_DIR_IN,GPIO_HIGH,FUNC_POWER_BTN,IRQ_TYPE_LEVEL_HIGH,"GPIOC6"},
+};
+```
+
+## main code
+
+<script src="https://gist.github.com/JasperHsieh0415/44ee7abb3b31c065598934965c515b91.js"></script>
+
+
+# Reference
+
+- [GPIO driver guide][GPIO_driver_guide]
+- [lwn][Official_linux_article]
+
+
+[GPIO_driver_guide]:https://b8807053.pixnet.net/blog/post/347760131-linux-gpio-driver-guide
+[Official_linux_article]:https://lwn.net/Articles/532714/
+
