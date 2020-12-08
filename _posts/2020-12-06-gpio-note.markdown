@@ -37,7 +37,6 @@ type種類定義在irq.h:
 
 
 # request_irq
-[TODO] devm_request_irq vs request_irq
 
 註冊interrupt service routine，設定callback function讓interrupt發生時執行
 ```c
@@ -53,6 +52,20 @@ request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
 - ```flags```: bitmask to set irq handling routines, ``IRQF_SHARED`` is most commonly used in my work.
 - ```const char *name```: GPIO label
 - ```void *dev```: device structure to be shared. Set to ``NULL`` is the interrupt line is NOT shared.
+
+另一種常見申請IRQ的API是```devm_request_irq```
+```c
+static inline int __must_check
+devm_request_irq(struct device *dev, unsigned int irq, irq_handler_t handler,
+		 unsigned long irqflags, const char *devname, void *dev_id)
+{
+	return devm_request_threaded_irq(dev, irq, handler, NULL, irqflags,
+					 devname, dev_id);
+}
+```
+兩者主要差別在於```devm_request_irq```是針對**managed device**申請IRQ，每當driver申請資源時，management code
+會自動記得所有資訊，等到driver和device斷開或是錯誤發生時，不須手動free_irq，資源會自動歸還給kernel。
+詳細請參考[LWN文章][devm_request_irq]及[Devres][devres]
 
 # enable_irq/disable_irq
 - ```enable_irq```:啟用IRQ handling
@@ -125,4 +138,6 @@ BTN_GPIO_Cfg btn_gpio_array[]=
 
 [GPIO_driver_guide]:https://b8807053.pixnet.net/blog/post/347760131-linux-gpio-driver-guide
 [Official_linux_article]:https://lwn.net/Articles/532714/
+[devm_request_irq]:https://lwn.net/Articles/215235/
+[devres]:https://www.kernel.org/doc/Documentation/driver-model/devres.txt
 
