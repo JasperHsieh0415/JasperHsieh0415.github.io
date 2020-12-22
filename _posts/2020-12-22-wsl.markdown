@@ -1,0 +1,79 @@
+---
+layout: post
+title:  "Windows WSL and Linux SCP connection"
+date:   2020-12-22 15:50:54 +0800
+tags:
+    - Work
+---
+
+WSL（Windows Subsystem on Linux），是微軟和Canonical共同開發，於 Windows 10 後加入的功能，
+能夠在 Windows 10 掛載一個 Linux 系統。
+
+WSL安裝方法不在這多做介紹，簡單的方法可透過Microsoft Store下載Ubuntu安裝
+
+## SCP (Secure Copy) 簡介
+
+scp和cp類似，但scp可以在**不同Linux主機間**傳輸資料，基本指令如下:
+
+> To use SCP, remote linux server MUST initial SSH service
+
+```console
+scp /path/file1 -P port myuser@192.168.0.1:/path/file2
+```
+
+每次要使用時要輸入這麼長的指令其實有點討人厭，可以透過新增SSH alias的方式簡化指令
+
+## 環境說明
+
+公司有一台Linux based的工作站，在工作上開發完後要把檔案拉到個人Windows PC上，之前的作法是開VM裝Ubuntu，
+把VM掛在同一個網域，再用SCP傳資料。
+
+現在利用WSL直接在Windows上建立Linux sub system，就不用多開VM了
+
+## 步驟說明
+
+1. **Install WSL on Windows 10**
+
+    安裝好WSL後，可以發現原來Windows上的C/D Drive都會mount在/mnt上
+
+2. **Install ssh server on WSL system**
+
+    ```console
+    jasper@JasperHsieh-PC:/$ sudo apt-get install ssh
+    jasper@JasperHsieh-PC:/$ service ssh start
+    ```
+
+    習慣上會修改SSH Port，因為不想和原本有在用SSH的port 22衝突
+
+    ```console
+    jasper@JasperHsieh-PC:/$ vi /etc/ssh/sshd_config
+    Search for the entry Port 22
+    Replace Port 22 with Port 2222
+    ```
+
+3. **工作站新增SSH alias**
+
+    ```console
+    vi ~/.ssh/config
+    ```
+
+    ```console
+    Host wsl
+    Hostname 192.168.2.47
+    Port 2222
+    User jasper
+    ```
+
+    這樣的設置下SCP command可以簡化成```scp /path/file1 wsl:/path/file2```
+
+    例如:將Linux工作上build好的image搬到PC上D Drive的test folder
+
+    ```console
+    scp test.img wsl:/mnt/d/test
+    ```
+
+4. **PC端加入防火牆規則**
+
+    控制台->系統及安全性->Windows defender防火牆->進階設定
+
+    輸入規則->新增規則->允許TCP port 2222傳輸
